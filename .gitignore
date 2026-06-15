@@ -1,6 +1,9 @@
 # Environment variables — NEVER commit secrets
 .env
 
+# Streamlit secrets — NEVER commit this
+.streamlit/secrets.toml
+
 # Python
 __pycache__/
 *.py[cod]
