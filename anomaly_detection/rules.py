@@ -54,3 +54,13 @@ def detect_anomalies(metrics: Dict[str, float]) -> List[Dict]:
             })
 
     return anomalies
+
+if __name__ == "__main__":
+    metrics = {
+        "Net Income": -500,
+        "Revenue": 1000,
+        "Operating Expenses": 1200
+    }
+
+    result = detect_anomalies(metrics)
+    print(result)
