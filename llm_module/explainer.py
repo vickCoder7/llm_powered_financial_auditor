@@ -8,7 +8,7 @@ import json
 MODE = os.getenv("LLM_MODE", "local")  # "local" for Ollama, "cloud" for Groq
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL_NAME = os.getenv("MODEL_NAME", "mistral") if MODE == "local" else "llama3-70b-8192"
+MODEL_NAME = os.getenv("MODEL_NAME", "mistral") if MODE == "local" else "llama-3.3-70b-versatile"
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 def explain_anomaly(metric_name: str, section_text: str, anomaly_reason: str) -> str:
