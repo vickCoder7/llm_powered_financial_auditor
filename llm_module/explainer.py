@@ -1,21 +1,20 @@
 # llm_module/explainer.py
 
+import os
 import requests
+import json
 
+# Configuration
+MODE = os.getenv("LLM_MODE", "local")  # "local" for Ollama, "cloud" for Groq
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "mistral"
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+MODEL_NAME = os.getenv("MODEL_NAME", "mistral") if MODE == "local" else "llama3-70b-8192"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 def explain_anomaly(metric_name: str, section_text: str, anomaly_reason: str) -> str:
     """
     Generate a human-readable explanation of the detected anomaly using an LLM.
-    
-    Args:
-        metric_name (str): The financial metric or rule being evaluated.
-        section_text (str): The section of the 10-K form that triggered the anomaly.
-        anomaly_reason (str): The specific rule or logic that caused the anomaly flag.
-    
-    Returns:
-        str: An LLM-generated explanation.
+    Supports local (Ollama) and cloud (Groq) providers based on environment variables.
     """
     prompt = f"""
 You are a financial auditing assistant. A potential anomaly was detected in a 10-K financial document.
@@ -30,13 +29,26 @@ Section Text:
 
 Please explain why this anomaly might be important in a professional and clear manner.
 """
-    response = requests.post(OLLAMA_API_URL, json={
-        "model": MODEL_NAME,
-        "prompt": prompt,
-        "stream": False
-    })
-
-    if response.status_code == 200:
-        return response.json().get("response", "").strip()
-    else:
-        raise RuntimeError(f"LLM request failed: {response.status_code}, {response.text}")
+    
+    if MODE == "local":
+        response = requests.post(OLLAMA_API_URL, json={
+            "model": MODEL_NAME,
+            "prompt": prompt,
+            "stream": False
+        })
+        if response.status_code == 200:
+            return response.json().get("response", "").strip()
+        else:
+            raise RuntimeError(f"Ollama request failed: {response.status_code}, {response.text}")
+            
+    else:  # Cloud (Groq)
+        headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+        payload = {
+            "model": MODEL_NAME,
+            "messages": [{"role": "user", "content": prompt}]
+        }
+        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
+        if response.status_code == 200:
+            return response.json()["choices"][0]["message"]["content"].strip()
+        else:
+            raise RuntimeError(f"Groq request failed: {response.status_code}, {response.text}")
