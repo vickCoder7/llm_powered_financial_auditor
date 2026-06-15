@@ -15,9 +15,13 @@ st.set_page_config(
     layout="wide"
 )
 
-# pyrefly: ignore [missing-import]
-from dotenv import load_dotenv
-load_dotenv()
+# Load .env locally if python-dotenv is installed (not needed on Streamlit Cloud)
+try:
+    # pyrefly: ignore [missing-import]
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # On Streamlit Cloud, secrets are already set as environment variables
 
 from extraction.parse_html import extract_sections_from_html
 from extraction.extract_metrics import extract_metrics_from_text
