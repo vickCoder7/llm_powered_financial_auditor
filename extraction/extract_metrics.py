@@ -25,14 +25,14 @@ Rules:
 - If a metric is not found, use null.
 
 Required JSON schema (exact keys):
-{
+{{
   "Revenue": <float or null>,
   "Net Income": <float or null>,
   "Operating Expenses": <float or null>,
   "Gross Profit": <float or null>,
   "Total Assets": <float or null>,
   "Total Liabilities": <float or null>
-}
+}}
 
 Financial Statement Text:
 \"\"\"
