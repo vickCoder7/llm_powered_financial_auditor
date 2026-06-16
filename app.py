@@ -210,7 +210,7 @@ if user_query := st.chat_input("Ask a question about the document..."):
 
     # Prepare context based on current LLM mode context length limits
     mode = os.getenv("LLM_MODE", "local")
-    limit = 80000 if mode == "cloud" else 8000
+    limit = 30000 if mode == "cloud" else 8000
     context_text = full_clean_text[:limit]
 
     # Render agent response
