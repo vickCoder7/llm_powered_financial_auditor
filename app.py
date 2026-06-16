@@ -164,7 +164,7 @@ if anomalies:
                         f"Error: {e}"
                     )
 
-# ── Step 5: Interactive Chat ──────────────────────────────────────────────────
+# ─ 5. Interactive Chat
 st.markdown("---")
 st.markdown("### 💬 Interactive Document Auditor")
 st.markdown(
