@@ -106,12 +106,22 @@ for title, text in sections.items():
     if title.lower().startswith("item 7") or title.lower().startswith("item 8"):
         combined_text += text + "\n"
 
-metrics = extract_metrics_from_text(combined_text)
+metrics = {}
+with st.spinner("🤖 AI extracting financial metrics from tables..."):
+    try:
+        metrics = extract_metrics_from_text(combined_text)
+    except RuntimeError as e:
+        st.error(
+            f"❌ LLM metric extraction failed.\n\n"
+            f"Make sure Ollama is running (`ollama run mistral`) or your Groq API key is set.\n\n"
+            f"Error: {e}"
+        )
+        st.stop()
 
 if not metrics:
     st.warning(
-        "⚠️ No financial metrics were extracted. The regex patterns may not match "
-        "this document's format. Try a standard SEC 10-K filing."
+        "⚠️ The AI could not extract any financial metrics from this document. "
+        "Ensure it is a standard SEC 10-K filing with financial statements in Item 7 or Item 8."
     )
 else:
     # Display metrics as cards in a responsive grid
