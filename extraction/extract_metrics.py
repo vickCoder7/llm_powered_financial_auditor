@@ -56,8 +56,9 @@ def extract_metrics_from_text(text: str) -> dict:
     Routes to Ollama (local) or Groq (cloud) based on LLM_MODE env var.
     Falls back to empty dict if the LLM fails or returns unparseable output.
     """
-    # Limit context size to avoid token overflow
-    limit = 20000 if MODE == "cloud" else 6000
+    # Limit context size: cloud handles large context well; local must stay tight
+    # to avoid Mistral timing out on dense financial tables
+    limit = 20000 if MODE == "cloud" else 3000
     prompt = EXTRACTION_PROMPT.format(text=text[:limit])
 
     try:
@@ -65,7 +66,7 @@ def extract_metrics_from_text(text: str) -> dict:
             response = requests.post(
                 OLLAMA_API_URL,
                 json={"model": MODEL_NAME, "prompt": prompt, "stream": False},
-                timeout=120,
+                timeout=180,
             )
             response.raise_for_status()
             raw = response.json().get("response", "")
