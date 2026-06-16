@@ -1,4 +1,4 @@
-# 🔍 LLM-Powered Financial Auditor
+# LLM-Powered Financial Auditor
 
 [![Streamlit App](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)](https://streamlit.io)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
@@ -26,7 +26,7 @@ graph TD
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
 - **HTML 10-K Parser:** Parses SEC EDGAR HTML filings using BeautifulSoup and extracts section headers like Item 7 (Management's Discussion & Analysis) and Item 8 (Financial Statements).
 - **Regex Metric Extraction:** Auto-extracts critical financial metrics (Revenue, Net Income, Operating Expenses, Gross Profit, Total Assets, Total Liabilities).
@@ -42,7 +42,7 @@ graph TD
 
 ---
 
-## 📁 Project Structure
+## Structure
 
 Below is the repository layout. Click any file link to view the implementation details directly:
 
@@ -63,7 +63,7 @@ Below is the repository layout. Click any file link to view the implementation d
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Prerequisites
 Ensure you have the following installed:
