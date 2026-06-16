@@ -7,6 +7,8 @@
 
 An automated tool to parse SEC 10-K financial filings, extract key performance metrics, check for rule-based anomalies, generate AI-driven audit explanations, and converse interactively with the document content.
 
+App: https://llm-financial-auditor.streamlit.app/
+
 ---
 
 ## 🏛️ System Architecture
