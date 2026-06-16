@@ -222,7 +222,7 @@ if user_query := st.chat_input("Ask a question about the document..."):
     mode = os.getenv("LLM_MODE", "local")
     # Groq free tier imposes a strict 12,000 TPM limit. 
     # 15,000 chars is ~3,750 tokens, which leaves enough room for the initial metrics extraction within the same minute.
-    limit = 15000 if mode == "cloud" else 8000
+    limit = 30000 if mode == "cloud" else 8000
     context_text = full_clean_text[:limit]
 
     # Render agent response
