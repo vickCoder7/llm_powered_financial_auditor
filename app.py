@@ -26,7 +26,7 @@ except ImportError:
 from extraction.parse_html import extract_sections_from_html
 from extraction.extract_metrics import extract_metrics_from_text
 from anomaly_detection.rules import detect_anomalies
-from llm_module.explainer import explain_anomaly
+from llm_module.explainer import explain_anomaly, answer_document_question
 
 
 # ─ Sidebar
@@ -163,6 +163,56 @@ if anomalies:
                         f"Run `ollama run mistral` in a separate terminal.\n\n"
                         f"Error: {e}"
                     )
+
+# ── Step 5: Interactive Chat ──────────────────────────────────────────────────
+st.markdown("---")
+st.markdown("### 💬 Interactive Document Auditor")
+st.markdown(
+    "Ask questions about this 10-K report (e.g., *'What are the primary risk factors?'*, "
+    "*'Summarize the revenue trends'*, or *'Describe the company's liabilities'*)."
+)
+
+# Manage state for current file to clear history if a new file is uploaded
+if "uploaded_filename" not in st.session_state:
+    st.session_state.uploaded_filename = None
+
+if uploaded_file.name != st.session_state.uploaded_filename:
+    st.session_state.chat_history = []
+    st.session_state.uploaded_filename = uploaded_file.name
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# Display prior chat messages
+for message in st.session_state.chat_history:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# User prompt input
+if user_query := st.chat_input("Ask a question about the document..."):
+    # Render user query
+    with st.chat_message("user"):
+        st.markdown(user_query)
+    st.session_state.chat_history.append({"role": "user", "content": user_query})
+
+    # Prepare context based on current LLM mode context length limits
+    mode = os.getenv("LLM_MODE", "local")
+    limit = 25000 if mode == "cloud" else 8000
+    context_text = combined_text[:limit]
+
+    # Render agent response
+    with st.chat_message("assistant"):
+        with st.spinner("Analyzing document content..."):
+            try:
+                response = answer_document_question(
+                    query=user_query,
+                    context=context_text,
+                    history=st.session_state.chat_history[:-1]
+                )
+                st.markdown(response)
+                st.session_state.chat_history.append({"role": "assistant", "content": response})
+            except Exception as e:
+                st.error(f"❌ Error communicating with the LLM: {e}")
 
 # ─ Raw Data
 st.markdown("---")
