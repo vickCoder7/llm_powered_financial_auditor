@@ -1,11 +1,11 @@
-# LLM-Powered Financial Auditor
+# 🔍 LLM-Powered Financial Auditor
 
 [![Streamlit App](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=Streamlit&logoColor=white)](https://streamlit.io)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Ollama](https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=Ollama&logoColor=white)](https://ollama.ai)
 [![Groq](https://img.shields.io/badge/Groq-F55036?style=for-the-badge&logo=Groq&logoColor=white)](https://groq.com)
 
-An automated tool to parse SEC 10-K financial filings, extract key performance metrics, check for rule-based anomalies, and generate AI-driven audit explanations.
+An automated tool to parse SEC 10-K financial filings, extract key performance metrics, check for rule-based anomalies, generate AI-driven audit explanations, and converse interactively with the document content.
 
 ---
 
@@ -19,14 +19,16 @@ graph TD
     D -->|Financial Metrics| E[Anomaly Detector Rules Engine]
     D -->|Display Metrics| H[Streamlit UI KPI Cards]
     E -->|Flags Anomalies| F[Dual-Mode LLM Explainer]
-    F -->|Local Mode: Ollama Mistral| G[Audit Report]
+    B -->|Cleaned Text Context| J[Interactive Q&A Chat Box]
+    J -->|User Queries & History| F
+    F -->|Local Mode: Ollama Mistral| G[Audit Results & Chat Answers]
     F -->|Cloud Mode: Groq Llama 3.3| G
     G --> I[Downloadable Audit Report .txt]
 ```
 
 ---
 
-## Key Features
+## 🌟 Key Features
 
 - **HTML 10-K Parser:** Parses SEC EDGAR HTML filings using BeautifulSoup and extracts section headers like Item 7 (Management's Discussion & Analysis) and Item 8 (Financial Statements).
 - **Regex Metric Extraction:** Auto-extracts critical financial metrics (Revenue, Net Income, Operating Expenses, Gross Profit, Total Assets, Total Liabilities).
@@ -35,14 +37,18 @@ graph TD
   - **Overspending** (Operating Expenses > Revenue).
   - **Low Gross Profit Margin** (< 20%).
   - **High Leverage** (Total Liabilities > 80% of Total Assets).
+- **Interactive Document Q&A Chat Box:** A conversational audit assistant allowing users to ask questions about any section of the uploaded 10-K (e.g. executive pay, legal disclosures, lease notes).
+  - Optimized with Streamlit caching (`@st.cache_data`) for instant, lag-free text processing.
+  - Automatically handles context length constraints: uses up to **30,000 characters** for cloud mode (respecting Groq TPM limits) and **8,000 characters** for local mode.
+  - Automatically resets conversation history when a new file is uploaded.
 - **Dual-Mode AI Explainer:**
-  - **Local Mode:** Performs offline explanation inference using a local Mistral model via [Ollama](https://ollama.ai/).
+  - **Local Mode:** Performs offline explanation and chat inference using a local Mistral model via [Ollama](https://ollama.ai/).
   - **Cloud Mode:** Runs blazing-fast serverless inference using a Llama 3.3 70B model via the [Groq Cloud API](https://groq.com/).
 - **Interactive UI Dashboard:** Built with Streamlit, presenting custom color-coded severity alerts, KPI cards, collapsible raw source inspect views, and one-click TXT report exports.
 
 ---
 
-## Structure
+## 📁 Project Structure
 
 Below is the repository layout. Click any file link to view the implementation details directly:
 
@@ -57,13 +63,13 @@ Below is the repository layout. Click any file link to view the implementation d
   - [`extract_metrics.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/extraction/extract_metrics.py) — Text miner that targets and formats metrics using specific regex patterns.
 - 📂 **[`anomaly_detection`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/anomaly_detection) (Rules engine):**
   - [`rules.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/anomaly_detection/rules.py) — Declares heuristic rules, severity logic, and flags anomalies.
-- 📂 **[`llm_module`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/llm_module) (AI Explanations):**
+- 📂 **[`llm_module`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/llm_module) (AI Explanations & Q&A):**
   - [`explainer.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/llm_module/explainer.py) — Handles prompt templates and schedules requests to Ollama or Groq API.
   - [`pipeline.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/llm_module/pipeline.py) — Local validation pipeline script.
 
 ---
 
-## Getting Started
+## 🚀 Getting Started
 
 ### 1. Prerequisites
 Ensure you have the following installed:
