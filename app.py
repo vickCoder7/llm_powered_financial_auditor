@@ -84,6 +84,9 @@ if not sections:
 
 st.success(f"✅ Successfully parsed **{len(sections)} sections** from the report.")
 
+# Reconstruct clean full text of the entire document for Q&A context
+full_doc_context = "\n\n".join([f"{title}\n{text}" for title, text in sections.items()])
+
 # ─ 2. Extract Metrics
 st.markdown("### 📊 Extracted Financial Metrics")
 
@@ -198,7 +201,7 @@ if user_query := st.chat_input("Ask a question about the document..."):
     # Prepare context based on current LLM mode context length limits
     mode = os.getenv("LLM_MODE", "local")
     limit = 25000 if mode == "cloud" else 8000
-    context_text = combined_text[:limit]
+    context_text = full_doc_context[:limit]
 
     # Render agent response
     with st.chat_message("assistant"):
