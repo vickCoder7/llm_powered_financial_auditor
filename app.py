@@ -70,10 +70,23 @@ if uploaded_file is None:
     st.info("👆 Upload an HTML 10-K report above to get started.")
     st.stop()   # Stop execution here until a file is provided
 
+@st.cache_data(show_spinner=False)
+def get_clean_html_text(html_text: str) -> str:
+    from bs4 import BeautifulSoup
+    import re
+    soup = BeautifulSoup(html_text, "html.parser")
+    # Remove script and style elements
+    for script in soup(["script", "style"]):
+        script.decompose()
+    # Get clean text
+    text = soup.get_text(separator=" ")
+    return re.sub(r'\s+', ' ', text).strip()
+
 # ─ 1. Parse HTML
 with st.spinner("Parsing HTML document..."):
     html_content = uploaded_file.read().decode("utf-8", errors="ignore")
     sections = extract_sections_from_html(html_content)
+    full_clean_text = get_clean_html_text(html_content)
 
 if not sections:
     st.error(
@@ -83,9 +96,6 @@ if not sections:
     st.stop()
 
 st.success(f"✅ Successfully parsed **{len(sections)} sections** from the report.")
-
-# Reconstruct clean full text of the entire document for Q&A context
-full_doc_context = "\n\n".join([f"{title}\n{text}" for title, text in sections.items()])
 
 # ─ 2. Extract Metrics
 st.markdown("### 📊 Extracted Financial Metrics")
@@ -200,8 +210,8 @@ if user_query := st.chat_input("Ask a question about the document..."):
 
     # Prepare context based on current LLM mode context length limits
     mode = os.getenv("LLM_MODE", "local")
-    limit = 25000 if mode == "cloud" else 8000
-    context_text = full_doc_context[:limit]
+    limit = 80000 if mode == "cloud" else 8000
+    context_text = full_clean_text[:limit]
 
     # Render agent response
     with st.chat_message("assistant"):
