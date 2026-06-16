@@ -76,7 +76,7 @@ Ensure you have the following installed:
 
 #### Step A: Clone the Repository & Install Dependencies
 ```bash
-git clone <your-repository-url>
+git clone https://github.com/vickCoder7/llm_powered_financial_auditor.git
 cd llm_powered_financial_auditor
 pip install -r requirements.txt
 ```
@@ -106,21 +106,6 @@ Or define them inside a `.env` file:
 LLM_MODE=cloud
 GROQ_API_KEY=your-groq-api-key-here
 ```
-
----
-
-## ☁️ Deployment (Streamlit Community Cloud)
-
-When deploying to [Streamlit Community Cloud](https://share.streamlit.io):
-
-1. Commit and push your code to a GitHub repository (excluding local credentials like `.env` and `.streamlit/secrets.toml`).
-2. Link your repository in the Streamlit Cloud dashboard.
-3. Access your app settings panel, select **Secrets**, and paste the API parameters directly:
-   ```toml
-   LLM_MODE = "cloud"
-   GROQ_API_KEY = "gsk_your_actual_groq_api_key"
-   ```
-4. Click **Save** and deploy. Streamlit will inject these as environment variables automatically!
 
 ---
 
