@@ -8,7 +8,7 @@ import os
 # Make all local modules importable from the project root
 sys.path.append(os.path.dirname(__file__))
 
-# ── Page config (must be the very first Streamlit call) ────────────────────────
+# ─ Page config
 st.set_page_config(
     page_title="LLM Financial Auditor",
     page_icon="🔍",
@@ -29,17 +29,17 @@ from anomaly_detection.rules import detect_anomalies
 from llm_module.explainer import explain_anomaly
 
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# ─ Sidebar
 with st.sidebar:
     st.title("🔍 LLM Financial Auditor")
     st.markdown("---")
     st.markdown(
         """
         **What this app does:**
-        1. 📄 Parses an HTML 10-K financial filing
-        2. 📊 Extracts key financial metrics via regex
-        3. 🚨 Flags anomalies using rule-based logic
-        4. 🤖 Explains each anomaly using a local LLM (Mistral via Ollama)
+        1. Parses an HTML 10-K financial filing
+        2. Extracts key financial metrics via regex
+        3. Flags anomalies using rule-based logic
+        4. Explains each anomaly using a local LLM (Mistral via Ollama)
         """
     )
     st.markdown("---")
@@ -51,7 +51,7 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-# ── Main Page Header ───────────────────────────────────────────────────────────
+# ─ Main Page Header
 st.title("🏦 LLM-Powered Financial Auditor")
 st.markdown(
     "Upload an HTML 10-K financial report to automatically detect anomalies "
@@ -59,7 +59,7 @@ st.markdown(
 )
 st.markdown("---")
 
-# ── File Upload ────────────────────────────────────────────────────────────────
+# ─ File Upload
 uploaded_file = st.file_uploader(
     "Upload a 10-K HTML Report",
     type=["html", "htm"],
@@ -70,7 +70,7 @@ if uploaded_file is None:
     st.info("👆 Upload an HTML 10-K report above to get started.")
     st.stop()   # Stop execution here until a file is provided
 
-# ── Step 1: Parse HTML ─────────────────────────────────────────────────────────
+# ─ 1. Parse HTML
 with st.spinner("Parsing HTML document..."):
     html_content = uploaded_file.read().decode("utf-8", errors="ignore")
     sections = extract_sections_from_html(html_content)
@@ -84,7 +84,7 @@ if not sections:
 
 st.success(f"✅ Successfully parsed **{len(sections)} sections** from the report.")
 
-# ── Step 2: Extract Metrics ────────────────────────────────────────────────────
+# ─ 2. Extract Metrics
 st.markdown("### 📊 Extracted Financial Metrics")
 
 # Item 7 (MD&A) and Item 8 (Financial Statements) contain the numbers
@@ -109,7 +109,7 @@ else:
             st.metric(label=name, value=f"${value:,.0f}M")
 
 
-# ── Step 3: Detect Anomalies ───────────────────────────────────────────────────
+# ─ 3. Detect Anomalies
 st.markdown("---")
 st.markdown("### 🚨 Anomaly Detection Results")
 
@@ -135,7 +135,7 @@ else:
             f"**[{severity.upper()}]** `{anomaly['metric']}` — {anomaly['reason']}"
         )
 
-# ── Step 4: LLM Explanations ───────────────────────────────────────────────────
+# ─ 4. LLM Explanations
 if anomalies:
     st.markdown("---")
     st.markdown("### 🤖 AI-Generated Audit Explanations")
@@ -164,7 +164,7 @@ if anomalies:
                         f"Error: {e}"
                     )
 
-# ── Raw Data (Optional) ────────────────────────────────────────────────────────
+# ─ Raw Data
 st.markdown("---")
 with st.expander("🗂️ View Raw Parsed Sections"):
     for title, text in sections.items():
@@ -173,7 +173,7 @@ with st.expander("🗂️ View Raw Parsed Sections"):
         st.markdown("---")
 
 
-# ── Download Report ────────────────────────────────────────────────────────────
+# ─ Download Report
 if anomalies:
     st.markdown("---")
 

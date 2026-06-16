@@ -1,7 +1,7 @@
-# Environment variables — NEVER commit secrets
+# Environment variables
 .env
 
-# Streamlit secrets — NEVER commit this
+# Streamlit secrets
 .streamlit/secrets.toml
 
 # Python
@@ -16,7 +16,7 @@ __pycache__/
 venv/
 env/
 
-# Data and outputs (often large / sensitive)
+# Data and outputs
 data/raw_documents/
 outputs/
 
@@ -27,3 +27,6 @@ outputs/
 # OS
 .DS_Store
 Thumbs.db
+
+
+LICENSE
