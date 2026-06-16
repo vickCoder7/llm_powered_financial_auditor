@@ -119,6 +119,6 @@ if __name__ == "__main__":
             combined += text + "\n"
 
     metrics = extract_metrics_from_text(combined)
-    print("\n📊 LLM-Extracted Financial Metrics:")
+    print("\nLLM-Extracted Financial Metrics:")
     for k, v in metrics.items():
         print(f"  {k}: ${v:,.2f}M")
