@@ -31,7 +31,7 @@ from llm_module.explainer import explain_anomaly, answer_document_question
 
 # ─ Sidebar
 with st.sidebar:
-    st.title("🔍 LLM Financial Auditor")
+    st.title("LLM Financial Auditor")
     st.markdown("---")
     st.markdown(
         """
