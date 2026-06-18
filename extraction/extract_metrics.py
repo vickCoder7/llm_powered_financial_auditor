@@ -1,16 +1,11 @@
-# extraction/extract_metrics.py
-
+import sys
 import os
 import re
 import json
 import requests
 
-# ── LLM Configuration (shared with explainer.py) ──────────────────────────────
-MODE = os.getenv("LLM_MODE", "local")
-OLLAMA_API_URL = "http://localhost:11434/api/generate"
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL_NAME = os.getenv("MODEL_NAME", "mistral") if MODE == "local" else "llama-3.3-70b-versatile"
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from llm_module.client import MODE, execute_llm_request
 
 # ── Prompt (cloud only) ────────────────────────────────────────────────────────
 EXTRACTION_PROMPT = """You are a financial data extraction assistant analyzing an SEC 10-K annual report.
@@ -138,25 +133,8 @@ def _llm_extract(text: str) -> dict:
     """LLM-based extraction via Groq. For cloud mode only."""
     context = _find_densest_chunk(text, chunk_size=6000, top_n=3)
     prompt = EXTRACTION_PROMPT.format(text=context)
-
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": MODEL_NAME,
-        "messages": [
-            {
-                "role": "system",
-                "content": "You are a financial data extraction assistant. Return only valid JSON with no extra text.",
-            },
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": 0,
-    }
-    response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=60)
-    response.raise_for_status()
-    raw = response.json()["choices"][0]["message"]["content"]
+    system_prompt = "You are a financial data extraction assistant. Return only valid JSON with no extra text."
+    raw = execute_llm_request(prompt=prompt, system_prompt=system_prompt)
     return _parse_json_response(raw)
 
 
