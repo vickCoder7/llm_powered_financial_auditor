@@ -28,6 +28,7 @@ from extraction.extract_metrics import extract_metrics_from_text
 from anomaly_detection.rules import detect_anomalies
 from llm_module.explainer import explain_anomaly, answer_document_question
 from llm_module.client import MODEL_NAME
+from llm_module.retriever import chunk_text, BM25Retriever
 
 
 # ─ Sidebar
@@ -84,10 +85,16 @@ def get_clean_html_text(html_text: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 # ─ 1. Parse HTML
-with st.spinner("Parsing HTML document..."):
+with st.spinner("Parsing HTML document and indexing text for RAG..."):
     html_content = uploaded_file.read().decode("utf-8", errors="ignore")
     sections = extract_sections_from_html(html_content)
     full_clean_text = get_clean_html_text(html_content)
+    
+    # Fit the BM25 search index for RAG
+    chunks = chunk_text(full_clean_text, chunk_size=1000, overlap=200)
+    retriever = BM25Retriever()
+    retriever.fit(chunks)
+    st.session_state.retriever = retriever
 
 if not sections:
     st.error(
@@ -219,12 +226,12 @@ if user_query := st.chat_input("Ask a question about the document..."):
         st.markdown(user_query)
     st.session_state.chat_history.append({"role": "user", "content": user_query})
 
-    # Prepare context based on current LLM mode context length limits
-    mode = os.getenv("LLM_MODE", "local")
-    # Groq free tier imposes a strict 12,000 TPM limit. 
-    # 15,000 chars is ~4,000 tokens, which leaves enough room for the initial metrics extraction within the same minute.
-    limit = 15000 if mode == "cloud" else 8000
-    context_text = full_clean_text[:limit]
+    # Prepare context using RAG retrieval (BM25)
+    if "retriever" in st.session_state and st.session_state.retriever is not None:
+        results = st.session_state.retriever.search(user_query, top_n=4)
+        context_text = "\n...\n".join(r["text"] for r in results)
+    else:
+        context_text = full_clean_text[:8000]
 
     # Render agent response
     with st.chat_message("assistant"):

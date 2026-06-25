@@ -1,13 +1,15 @@
+# extraction/extract_metrics.py
+
 import sys
 import os
 import re
 import json
-import requests
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from llm_module.client import MODE, execute_llm_request
+from llm_module.client import execute_llm_request
+from llm_module.retriever import chunk_text, BM25Retriever
 
-# ── Prompt (cloud only) ────────────────────────────────────────────────────────
+# ── Prompt (shared with Ollama/Groq) ──────────────────────────────────────────
 EXTRACTION_PROMPT = """You are a financial data extraction assistant analyzing an SEC 10-K annual report.
 
 Extract the following financial metrics for the MOST RECENT fiscal year from the text below.
@@ -35,92 +37,6 @@ Financial Statement Text:
 \"\"\"
 """
 
-# ── Regex Patterns (local fallback) ───────────────────────────────────────────
-# Broader label synonyms to handle Apple-style "Net sales", "Total net sales" etc.
-METRIC_PATTERNS = {
-    "Revenue":            r"(?:Total\s+)?(?:Net\s+)?(?:Revenue|Sales|Net\s+sales)[^\d\(\-]{0,20}([\(\-]?[\d,]+(?:\.\d+)?[\)]?)",
-    "Net Income":         r"Net\s+(?:income|earnings|loss)[^\d\(\-]{0,20}([\(\-]?[\d,]+(?:\.\d+)?[\)]?)",
-    "Operating Expenses": r"(?:Total\s+)?Operating\s+(?:expenses|costs)[^\d\(\-]{0,20}([\(\-]?[\d,]+(?:\.\d+)?[\)]?)",
-    "Gross Profit":       r"Gross\s+(?:profit|margin)[^\d\(\-]{0,20}([\(\-]?[\d,]+(?:\.\d+)?[\)]?)",
-    "Total Assets":       r"Total\s+assets[^\d\(\-]{0,20}([\(\-]?[\d,]+(?:\.\d+)?[\)]?)",
-    "Total Liabilities":  r"Total\s+(?:liabilities|liabilities\s+and)[^\d\(\-]{0,20}([\(\-]?[\d,]+(?:\.\d+)?[\)]?)",
-}
-
-
-def _parse_value(raw_str: str) -> float:
-    """Convert a raw matched string like '(1,234)' or '383,285' to a float."""
-    s = raw_str.strip()
-    negative = s.startswith("(") and s.endswith(")")
-    s = s.strip("()")
-    value = float(s.replace(",", ""))
-    return -value if negative else value
-
-
-def _detect_scale(text: str) -> float:
-    """
-    Detect the reporting scale from the document preamble.
-    Returns the multiplier to convert reported numbers to millions.
-    e.g. 'in thousands' → 0.001, 'in millions' → 1.0, 'in billions' → 1000.0
-    """
-    snippet = text[:5000].lower()
-    if re.search(r"in\s+thousands", snippet):
-        return 0.001
-    if re.search(r"in\s+billions", snippet):
-        return 1000.0
-    # Default assumption for large-cap 10-Ks: values already in millions
-    return 1.0
-
-
-def _regex_extract(text: str) -> dict:
-    """
-    Regex-based metric extraction with scale detection.
-    Used as the local-mode fallback when Mistral is too slow.
-    """
-    scale = _detect_scale(text)
-    metrics = {}
-    for name, pattern in METRIC_PATTERNS.items():
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            try:
-                value = _parse_value(match.group(1)) * scale
-                metrics[name] = value
-            except (ValueError, IndexError):
-                continue
-    return metrics
-
-
-# ── Cloud (LLM) helpers ────────────────────────────────────────────────────────
-_FINANCE_SIGNAL = re.compile(
-    r"(\$[\d,]+|\d[\d,]+\.\d|\b(?:million|billion|thousand|revenue|income|"
-    r"assets|liabilities|profit|expenses|earnings|net sales|total)\b)",
-    re.IGNORECASE,
-)
-
-
-def _find_densest_chunk(text: str, chunk_size: int, top_n: int = 3) -> str:
-    """Return the top_n highest-density financial windows concatenated."""
-    step = chunk_size // 2
-    windows = []
-    for start in range(0, max(1, len(text) - chunk_size + 1), step):
-        window = text[start: start + chunk_size]
-        score = len(_FINANCE_SIGNAL.findall(window))
-        windows.append((score, start, window))
-
-    windows.sort(key=lambda x: x[0], reverse=True)
-    selected: list[tuple[int, str]] = []
-    used: list[tuple[int, int]] = []
-    for score, start, window in windows:
-        end = start + chunk_size
-        if any(start < u_end and end > u_start for u_start, u_end in used):
-            continue
-        selected.append((start, window))
-        used.append((start, end))
-        if len(selected) >= top_n:
-            break
-
-    selected.sort(key=lambda x: x[0])
-    return "\n...\n".join(w for _, w in selected)
-
 
 def _parse_json_response(raw: str) -> dict:
     """Strip markdown code fences and parse JSON from LLM response."""
@@ -130,46 +46,63 @@ def _parse_json_response(raw: str) -> dict:
 
 
 def _llm_extract(text: str) -> dict:
-    """LLM-based extraction via Groq. For cloud mode only."""
-    context = _find_densest_chunk(text, chunk_size=6000, top_n=3)
+    """LLM-based extraction using RAG context retrieval."""
+    # Chunk the text into smaller searchable segments
+    chunks = chunk_text(text, chunk_size=3000, overlap=500)
+    
+    # Fit the BM25 index on these chunks
+    retriever = BM25Retriever()
+    retriever.fit(chunks)
+    
+    # Query for statement of operations (income statement) and balance sheet sections
+    results_ops = retriever.search("Consolidated Statements of Operations Income Revenue Sales Cost of Sales", top_n=2)
+    results_bs = retriever.search("Consolidated Balance Sheets Assets Liabilities Equity", top_n=2)
+    
+    # Merge retrieved chunks based on their original order index
+    retrieved_chunks = []
+    seen_indices = set()
+    for r in results_ops + results_bs:
+        if r["index"] not in seen_indices:
+            seen_indices.add(r["index"])
+            retrieved_chunks.append(r)
+            
+    # Sort chunks to preserve the original sequence of the tables
+    retrieved_chunks.sort(key=lambda x: x["index"])
+    
+    context = "\n...\n".join(c["text"] for c in retrieved_chunks)
     prompt = EXTRACTION_PROMPT.format(text=context)
+    
     system_prompt = "You are a financial data extraction assistant. Return only valid JSON with no extra text."
     raw = execute_llm_request(prompt=prompt, system_prompt=system_prompt)
+    
     return _parse_json_response(raw)
 
 
-# ── Public API ─────────────────────────────────────────────────────────────────
 def extract_metrics_from_text(text: str) -> dict:
     """
     Extract key financial metrics from the provided 10-K text.
-
-    Strategy:
-      - Cloud mode (Groq/Llama 3.3): LLM structured extraction — handles semantic
-        label variations, scale normalization, and table ambiguity automatically.
-      - Local mode (Ollama/Mistral): Smart regex with scale detection — fast and
-        reliable; Mistral 7B is too slow for structured JSON extraction from large
-        financial tables within a practical timeout.
+    Uses BM25 Retrieval to isolate the balance sheet and income statement chunks,
+    then feeds them to the LLM (Groq or Ollama) for structured JSON extraction.
 
     Returns a dict of {metric_name: float_in_millions}.
     """
     try:
-        if MODE == "cloud":
-            return _llm_extract(text)
-        else:
-            return _regex_extract(text)
-    except (requests.RequestException, json.JSONDecodeError, KeyError, ValueError) as e:
+        return _llm_extract(text)
+    except Exception as e:
         raise RuntimeError(f"Metric extraction failed: {e}") from e
 
 
 # ── Standalone test ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    import sys
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
     from extraction.parse_html import extract_sections_from_html
 
     sample_path = os.path.join(
         os.path.dirname(__file__), "..", "data", "raw_documents", "apple_10k_2023.html"
     )
+    if not os.path.exists(sample_path):
+        print(f"Sample document not found at {sample_path}")
+        sys.exit(1)
+        
     with open(sample_path, "r", encoding="utf-8") as f:
         html = f.read()
 
@@ -179,11 +112,15 @@ if __name__ == "__main__":
         if title.lower().startswith("item 7") or title.lower().startswith("item 8"):
             combined += text + "\n"
 
-    print(f"Mode: {MODE}  |  Combined text: {len(combined):,} chars")
-    metrics = extract_metrics_from_text(combined)
-    print("\nExtracted Financial Metrics:")
-    if metrics:
-        for k, v in metrics.items():
-            print(f"  {k}: ${v:,.2f}M")
-    else:
-        print("  (no metrics extracted)")
+    print(f"Combined text: {len(combined):,} chars")
+    print("Running LLM extraction (RAG-based)...")
+    try:
+        metrics = extract_metrics_from_text(combined)
+        print("\nExtracted Financial Metrics:")
+        if metrics:
+            for k, v in metrics.items():
+                print(f"  {k}: ${v:,.2f}M")
+        else:
+            print("  (no metrics extracted)")
+    except Exception as e:
+        print("Extraction failed:", e)
