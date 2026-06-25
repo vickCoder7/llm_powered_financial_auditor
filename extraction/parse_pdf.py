@@ -26,6 +26,7 @@ def extract_sections_from_pdf(pdf_file) -> dict:
          splitting by page so that sections remain a manageable size for BM25 indexing.
     """
     try:
+        # pyrefly: ignore [missing-import]
         import pdfplumber
     except ImportError:
         raise RuntimeError(
@@ -51,7 +52,7 @@ def extract_sections_from_pdf(pdf_file) -> dict:
 
     full_text = "\n".join(page_texts)
 
-    # ── Try SEC "Item X." section detection (same as HTML parser) ────────────
+    # Try SEC "Item X." section detection (same as HTML parser)
     pattern = re.compile(r'(Item\s+\d+[A-Z]?\.*)\s+([^\n]{3,100})', re.IGNORECASE)
     matches = list(pattern.finditer(full_text))
 
@@ -67,7 +68,7 @@ def extract_sections_from_pdf(pdf_file) -> dict:
         if sections:
             return sections
 
-    # ── Fallback: use individual pages as sections ────────────────────────────
+    # Fallback: use individual pages as sections
     # This preserves document structure for BM25 indexing without one giant blob.
     sections = {}
     for i, page_text in enumerate(page_texts, start=1):
