@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from llm_module.client import execute_llm_request
 from llm_module.retriever import chunk_text, BM25Retriever
 
-# ── Prompt (shared with Ollama/Groq) ──────────────────────────────────────────
+# Prompt (shared with Ollama/Groq)
 EXTRACTION_PROMPT = """You are a financial data extraction assistant analyzing a financial report or filing.
 
 Extract the following financial metrics for the MOST RECENT fiscal year from the text below.
@@ -92,7 +92,7 @@ def extract_metrics_from_text(text: str) -> dict:
         raise RuntimeError(f"Metric extraction failed: {e}") from e
 
 
-# ── Standalone test ────────────────────────────────────────────────────────────
+# Standalone test
 if __name__ == "__main__":
     from extraction.parse_html import extract_sections_from_html
 
