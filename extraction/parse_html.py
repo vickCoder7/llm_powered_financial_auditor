@@ -47,7 +47,6 @@ def save_sections_to_json(sections, output_path):
         json.dump(sections, f, indent=2)
 
 if __name__ == "__main__":
-    # html_path = Path("../data/raw_documents/apple_10k_2023.html")
     html_path = Path("../data/raw_documents/apple_10k_2023.html")
     output_path = Path("../outputs/structured_data/apple_sections.json")
 
