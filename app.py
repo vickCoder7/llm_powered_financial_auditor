@@ -38,15 +38,15 @@ with st.sidebar:
     st.markdown(
         """
         **What this app does:**
-        1. Parses an HTML 10-K financial filing
-        2. Extracts key financial metrics via regex
+        1. Parses an HTML financial report (10-K, 10-Q, annual report)
+        2. Extracts key financial metrics using RAG + LLM
         3. Flags anomalies using rule-based logic
-        4. Explains each anomaly using a local LLM (Mistral via Ollama)
+        4. Explains each anomaly using an LLM (Groq cloud or Ollama locally)
         """
     )
     st.markdown("---")
     st.markdown("**Tech Stack**")
-    st.code("Python · BeautifulSoup · Regex · Ollama · Streamlit", language=None)
+    st.code("Python · BeautifulSoup · BM25 RAG · Groq/Ollama · Streamlit", language=None)
     st.markdown("---")
     st.markdown(
         "Built by [Victor Agbadan](https://github.com/vickCoder7)",
@@ -56,20 +56,20 @@ with st.sidebar:
 # ─ Main Page Header
 st.title("🏦 LLM-Powered Financial Auditor")
 st.markdown(
-    "Upload an HTML 10-K financial report to automatically detect anomalies "
-    "and generate AI-powered audit explanations."
+    "Upload an HTML financial report (10-K, 10-Q, or annual report) to automatically "
+    "detect anomalies and generate AI-powered audit explanations."
 )
 st.markdown("---")
 
 # ─ File Upload
 uploaded_file = st.file_uploader(
-    "Upload a 10-K HTML Report",
+    "Upload an HTML Financial Report",
     type=["html", "htm"],
-    help="Upload a 10-K SEC filing in HTML format. You can download these from SEC EDGAR."
+    help="Upload any SEC filing or financial report in HTML format. 10-Ks, 10-Qs, and general annual reports are all supported."
 )
 
 if uploaded_file is None:
-    st.info("👆 Upload an HTML 10-K report above to get started.")
+    st.info("👆 Upload an HTML financial report above to get started.")
     st.stop()   # Stop execution here until a file is provided
 
 @st.cache_data(show_spinner=False)
@@ -91,15 +91,15 @@ with st.spinner("Parsing HTML document and indexing text for RAG..."):
     full_clean_text = get_clean_html_text(html_content)
     
     # Fit the BM25 search index for RAG
-    chunks = chunk_text(full_clean_text, chunk_size=1000, overlap=200)
+    chunks = chunk_text(full_clean_text, chunk_size=3000, overlap=500)
     retriever = BM25Retriever()
     retriever.fit(chunks)
     st.session_state.retriever = retriever
 
 if not sections:
     st.error(
-        "❌ No sections found in this file. Make sure it is a valid 10-K HTML report "
-        "with 'Item X.' section headers."
+        "❌ No content could be extracted from this file. "
+        "Please ensure it is a valid HTML financial report."
     )
     st.stop()
 
@@ -108,11 +108,16 @@ st.success(f"✅ Successfully parsed **{len(sections)} sections** from the repor
 # ─ 2. Extract Metrics
 st.markdown("### 📊 Extracted Financial Metrics")
 
-# Item 7 (MD&A) and Item 8 (Financial Statements) contain the numbers
+# For 10-K filings: use Item 7 (MD&A) and Item 8 (Financial Statements).
+# For other documents (10-Q, general reports): fall back to all sections.
 combined_text = ""
 for title, text in sections.items():
     if title.lower().startswith("item 7") or title.lower().startswith("item 8"):
         combined_text += text + "\n"
+
+# If no 10-K-specific sections were found, use the entire document text
+if not combined_text.strip():
+    combined_text = " ".join(sections.values())
 
 metrics = {}
 with st.spinner("🤖 AI extracting financial metrics from tables..."):
@@ -129,7 +134,7 @@ with st.spinner("🤖 AI extracting financial metrics from tables..."):
 if not metrics:
     st.warning(
         "⚠️ The AI could not extract any financial metrics from this document. "
-        "Ensure it is a standard SEC 10-K filing with financial statements in Item 7 or Item 8."
+        "Ensure it contains standard financial statements (Income Statement, Balance Sheet)."
     )
 else:
     # Display metrics as cards in a responsive grid
@@ -199,8 +204,8 @@ if anomalies:
 st.markdown("---")
 st.markdown("### 💬 Interactive Document Auditor")
 st.markdown(
-    "Ask questions about this 10-K report (e.g., *'What are the primary risk factors?'*, "
-    "*'Summarize the revenue trends'*, or *'Describe the company's liabilities'*)."
+    "Ask questions about this financial report (e.g., *'What are the primary risk factors?'*, "
+    "*'Summarize the revenue trends'*, or *'Describe the company\\'s liabilities'*)."
 )
 
 # Manage state for current file to clear history if a new file is uploaded

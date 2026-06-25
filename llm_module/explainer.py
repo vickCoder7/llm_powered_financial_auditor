@@ -8,7 +8,7 @@ def explain_anomaly(metric_name: str, section_text: str, anomaly_reason: str) ->
     Supports local (Ollama) and cloud (Groq) providers based on environment variables.
     """
     prompt = f"""
-You are a financial auditing assistant. A potential anomaly was detected in a 10-K financial document.
+You are a financial auditing assistant. A potential anomaly was detected in a financial document.
     
 Metric: {metric_name}
 Rule Violation: {anomaly_reason}
@@ -34,11 +34,11 @@ def answer_document_question(query: str, context: str, history: list) -> str:
         role = "User" if msg["role"] == "user" else "Assistant"
         history_str += f"{role}: {msg['content']}\n"
 
-    prompt = f"""You are a professional financial auditor assistant. You are answering questions about a company's 10-K SEC filing.
+    prompt = f"""You are a professional financial auditor assistant. You are answering questions about a company's financial report.
 Use ONLY the provided Section Text below to answer the user's question. 
 If the answer cannot be found or reasonably inferred from the provided text, politely explain that the information is not available in the document. Do not invent facts.
 
-Section Text (10-K context):
+Section Text (document context):
 \"\"\"
 {context}
 \"\"\"

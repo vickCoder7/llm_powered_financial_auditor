@@ -10,7 +10,7 @@ from llm_module.client import execute_llm_request
 from llm_module.retriever import chunk_text, BM25Retriever
 
 # ── Prompt (shared with Ollama/Groq) ──────────────────────────────────────────
-EXTRACTION_PROMPT = """You are a financial data extraction assistant analyzing an SEC 10-K annual report.
+EXTRACTION_PROMPT = """You are a financial data extraction assistant analyzing a financial report or filing.
 
 Extract the following financial metrics for the MOST RECENT fiscal year from the text below.
 Return ONLY a valid JSON object — no markdown, no code fences, no explanation, no extra text.

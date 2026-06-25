@@ -33,6 +33,11 @@ def extract_sections_from_html(html_content):
         section_text = full_text[start:end].strip()
         sections[section_title] = clean_text(section_text)
 
+    # Fallback for non-10-K documents (e.g. 10-Q, annual reports, general financials)
+    # that don't use "Item X." section headers — treat the whole document as one section.
+    if not sections:
+        sections["Full Document"] = clean_text(full_text)
+
     return sections
 
 def save_sections_to_json(sections, output_path):
