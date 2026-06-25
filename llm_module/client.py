@@ -4,12 +4,13 @@ import time
 import requests
 
 try:
+    # pyrefly: ignore [missing-import]
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
 
-# ── LLM Configuration ─────────────────────────────────────────────────────────
+# LLM Configuration
 MODE = os.getenv("LLM_MODE", "local")  # "local" for Ollama, "cloud" for Groq
 OLLAMA_API_URL = "http://localhost:11434/api/generate"
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -140,6 +141,7 @@ def execute_llm_request(prompt: str, system_prompt: str = None, chat_history: li
                     
                     # Notify UI if in Streamlit context
                     try:
+                        # pyrefly: ignore [missing-import]
                         import streamlit as st
                         st.toast(f"⏳ Rate limit reached for {MODEL_NAME}. Retrying in {wait_time:.1f}s...", icon="⏳")
                     except Exception:
