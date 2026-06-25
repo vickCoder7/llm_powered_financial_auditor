@@ -39,7 +39,7 @@ with st.sidebar:
     st.markdown(
         """
         **What this app does:**
-        1. Parses an HTML financial report (10-K, 10-Q, annual report)
+        1. Parses an HTML or a pdf financial report (10-K, 10-Q, annual report)
         2. Extracts key financial metrics using RAG + LLM
         3. Flags anomalies using rule-based logic
         4. Explains each anomaly using an LLM (Groq cloud or Ollama locally)
@@ -57,7 +57,7 @@ with st.sidebar:
 # ─ Main Page Header
 st.title("🏦 LLM-Powered Financial Auditor")
 st.markdown(
-    "Upload an HTML financial report (10-K, 10-Q, or annual report) to automatically "
+    "Upload an HTML or a pdf financial report (10-K, 10-Q, or annual report) to automatically "
     "detect anomalies and generate AI-powered audit explanations."
 )
 st.markdown("---")
