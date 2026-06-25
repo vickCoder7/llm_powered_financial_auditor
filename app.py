@@ -24,6 +24,7 @@ except ImportError:
     pass  # On Streamlit Cloud, secrets are already set as environment variables
 
 from extraction.parse_html import extract_sections_from_html
+from extraction.parse_pdf import extract_sections_from_pdf
 from extraction.extract_metrics import extract_metrics_from_text
 from anomaly_detection.rules import detect_anomalies
 from llm_module.explainer import explain_anomaly, answer_document_question
@@ -63,9 +64,9 @@ st.markdown("---")
 
 # ─ File Upload
 uploaded_file = st.file_uploader(
-    "Upload an HTML Financial Report",
-    type=["html", "htm"],
-    help="Upload any SEC filing or financial report in HTML format. 10-Ks, 10-Qs, and general annual reports are all supported."
+    "Upload a Financial Report",
+    type=["html", "htm", "pdf"],
+    help="Upload any SEC filing or financial report. Supports HTML (10-K, 10-Q from EDGAR) and PDF formats."
 )
 
 if uploaded_file is None:
@@ -84,12 +85,21 @@ def get_clean_html_text(html_text: str) -> str:
     text = soup.get_text(separator=" ")
     return re.sub(r'\s+', ' ', text).strip()
 
-# ─ 1. Parse HTML
-with st.spinner("Parsing HTML document and indexing text for RAG..."):
-    html_content = uploaded_file.read().decode("utf-8", errors="ignore")
-    sections = extract_sections_from_html(html_content)
-    full_clean_text = get_clean_html_text(html_content)
-    
+# ─ 1. Parse document (HTML or PDF)
+with st.spinner("Parsing document and indexing text for RAG..."):
+    html_content = uploaded_file.read()
+    file_ext = uploaded_file.name.rsplit(".", 1)[-1].lower()
+
+    if file_ext == "pdf":
+        import io
+        sections = extract_sections_from_pdf(io.BytesIO(html_content))
+        # For clean full text (used by BM25), join all section texts
+        full_clean_text = " ".join(sections.values())
+    else:
+        html_str = html_content.decode("utf-8", errors="ignore")
+        sections = extract_sections_from_html(html_str)
+        full_clean_text = get_clean_html_text(html_str)
+
     # Fit the BM25 search index for RAG
     chunks = chunk_text(full_clean_text, chunk_size=3000, overlap=500)
     retriever = BM25Retriever()
