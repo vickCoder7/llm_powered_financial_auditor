@@ -5,7 +5,7 @@
 [![Ollama](https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=Ollama&logoColor=white)](https://ollama.ai)
 [![Groq](https://img.shields.io/badge/Groq-F55036?style=for-the-badge&logo=Groq&logoColor=white)](https://groq.com)
 
-An automated tool to parse SEC 10-K financial filings, extract key performance metrics, check for rule-based anomalies, generate AI-driven audit explanations, and converse interactively with the document content.
+An automated financial document auditor that parses HTML and PDF financial reports, extracts key performance metrics using a **Retrieval-Augmented Generation (RAG)** pipeline, flags anomalies with a rule-based engine, and generates AI-powered audit explanations. Supports SEC EDGAR filings (10-K, 10-Q) as well as general annual reports.
 
 App: https://llm-financial-auditor.streamlit.app/
 
@@ -15,74 +15,92 @@ App: https://llm-financial-auditor.streamlit.app/
 
 ```mermaid
 graph TD
-    A[HTML 10-K Filing Upload] --> B[HTML Parser BeautifulSoup]
-    B -->|Extract Sections| C[Item 7 MD&A & Item 8 Financials]
-    C --> D[Metric Extractor regex]
-    D -->|Financial Metrics| E[Anomaly Detector Rules Engine]
-    D -->|Display Metrics| H[Streamlit UI KPI Cards]
-    E -->|Flags Anomalies| F[Dual-Mode LLM Explainer]
-    B -->|Cleaned Text Context| J[Interactive Q&A Chat Box]
-    J -->|User Queries & History| F
-    F -->|Local Mode: Ollama Mistral| G[Audit Results & Chat Answers]
-    F -->|Cloud Mode: Groq Llama 3.3| G
-    G --> I[Downloadable Audit Report .txt]
+    A["Upload HTML or PDF Financial Report"] --> B["Document Parser (HTML: BeautifulSoup / PDF: pdfplumber)"]
+    B --> |"Extract Sections (Item 7/8 or full-doc fallback)"| C["BM25 Retriever — Chunk & Index Full Text"]
+    C --> |"Targeted Table Retrieval"| D["LLM Metric Extractor (Groq / Ollama)"]
+    D --> |"Financial Metrics JSON"| E["Anomaly Detector — Rules Engine"]
+    D --> |"Display Metrics"| H["Streamlit UI — KPI Cards"]
+    E --> |"Flagged Anomalies"| F["LLM Anomaly Explainer"]
+    C --> |"Relevant Chunks (Top 4)"| J["Interactive Q&A Chat"]
+    J --> |"User Query + History"| F
+    F --> |"Local: Ollama Mistral"| G["Audit Results & Chat Answers"]
+    F --> |"Cloud: Groq compound-mini"| G
+    G --> I["Downloadable Audit Report (.txt)"]
 ```
 
 ---
 
 ## 🌟 Key Features
 
-- **HTML 10-K Parser:** Parses SEC EDGAR HTML filings using BeautifulSoup and extracts section headers like Item 7 (Management's Discussion & Analysis) and Item 8 (Financial Statements).
-- **Regex Metric Extraction:** Auto-extracts critical financial metrics (Revenue, Net Income, Operating Expenses, Gross Profit, Total Assets, Total Liabilities).
-- **Anomaly Detection Rules Engine:** Evaluates metrics against standard auditing heuristics:
-  - **Negative Net Income** (indicating net loss).
-  - **Overspending** (Operating Expenses > Revenue).
-  - **Low Gross Profit Margin** (< 20%).
-  - **High Leverage** (Total Liabilities > 80% of Total Assets).
-- **Interactive Document Q&A Chat Box:** A conversational audit assistant allowing users to ask questions about any section of the uploaded 10-K (e.g. executive pay, legal disclosures, lease notes).
-  - Optimized with Streamlit caching (`@st.cache_data`) for instant, lag-free text processing.
-  - Automatically handles context length constraints: uses up to **30,000 characters** for cloud mode (respecting Groq TPM limits) and **8,000 characters** for local mode.
-  - Automatically resets conversation history when a new file is uploaded.
-- **Dual-Mode AI Explainer:**
-  - **Local Mode:** Performs offline explanation and chat inference using a local Mistral model via [Ollama](https://ollama.ai/).
-  - **Cloud Mode:** Runs blazing-fast serverless inference using a Llama 3.3 70B model via the [Groq Cloud API](https://groq.com/).
-- **Interactive UI Dashboard:** Built with Streamlit, presenting custom color-coded severity alerts, KPI cards, collapsible raw source inspect views, and one-click TXT report exports.
+### 📄 Multi-Format Document Parsing
+Supports two input formats — both route through the same downstream pipeline:
+- **HTML** (`parse_html.py`): Parses SEC EDGAR HTML filings using BeautifulSoup, extracting `Item X.` section headers. Falls back to the full document if no headers are found.
+- **PDF** (`parse_pdf.py`): Extracts page-by-page text using `pdfplumber`, applies the same `Item X.` section detection, and falls back to page-level sections for general financial PDFs.
+
+### 🔎 BM25 Retrieval-Augmented Generation (RAG)
+Instead of blindly truncating or sending the entire document to the LLM, the application uses an in-memory **Okapi BM25** search index (implemented in pure Python with no external dependencies):
+- The full document text is chunked into overlapping 3,000-character windows and indexed on upload.
+- For **metric extraction**, the retriever runs two targeted queries — one for the Income Statement and one for the Balance Sheet — retrieving only the actual financial tables (~3,000–5,000 characters).
+- For **interactive chat**, the retriever retrieves the top 4 most relevant chunks for every user question, enabling full-document coverage without breaking token limits.
+
+### 📊 LLM-Powered Metric Extraction
+Extracts 6 key financial metrics for the most recent fiscal year from retrieved table chunks:
+- Revenue, Net Income, Gross Profit, Operating Expenses, Total Assets, Total Liabilities.
+- Handles semantic label variation (e.g. `"Net sales"` vs `"Revenue"`), unit scale normalization (thousands / millions / billions), and parenthetical negatives automatically.
+
+### 🚨 Anomaly Detection Rules Engine
+Evaluates extracted metrics against standard auditing heuristics:
+- **Negative Net Income** — indicates a net loss.
+- **Overspending** — Operating Expenses exceed Revenue.
+- **Low Gross Profit Margin** — margin below 20%.
+- **High Leverage** — Total Liabilities exceed 80% of Total Assets.
+
+### 🤖 Dual-Mode AI Explainer & Chat
+- **Local Mode (Ollama):** Offline inference using a local Mistral model. Because RAG retrieves only compact, targeted context, local models can now perform both metric extraction and chat Q&A accurately and quickly.
+- **Cloud Mode (Groq):** High-speed serverless inference using `groq/compound-mini` (70,000 TPM limit — chosen specifically for its generous free-tier rate limits) or any other Groq-compatible model set via `MODEL_NAME`.
+- **Auto Rate-Limit Handling:** The `client.py` LLM client automatically parses Groq `429` responses, extracts the exact retry wait time from response headers or error messages, and retries up to 5 times with a small safety buffer. A Streamlit toast notification keeps the user informed.
+
+### 💬 Interactive Document Q&A
+A conversational audit assistant for asking questions about any part of the uploaded report:
+- Maintains a rolling 5-message conversation history.
+- Resets automatically when a new file is uploaded.
+- Answers are grounded exclusively in the retrieved document context — no hallucinated facts.
 
 ---
 
 ## 📁 Project Structure
 
-Below is the repository layout. Click any file link to view the implementation details directly:
-
-- 🔍 **Main Entrypoint:**
-  - [`app.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/app.py) — The Streamlit application UI, report generation, and layout.
-- 📦 **Dependencies:**
-  - [`requirements.txt`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/requirements.txt) — Project package requirements.
-- ⚙️ **Git Configuration:**
-  - [`.gitignore`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/.gitignore) — Configured to protect environment files (`.env`) and local Streamlit secrets.
-- 📂 **[`extraction`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/extraction) (Data ingestion & extraction):**
-  - [`parse_html.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/extraction/parse_html.py) — Parser to structure SEC 10-K HTML reports into clean textual sections.
-  - [`extract_metrics.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/extraction/extract_metrics.py) — Text miner that targets and formats metrics using specific regex patterns.
-- 📂 **[`anomaly_detection`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/anomaly_detection) (Rules engine):**
-  - [`rules.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/anomaly_detection/rules.py) — Declares heuristic rules, severity logic, and flags anomalies.
-- 📂 **[`llm_module`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/llm_module) (AI Explanations & Q&A):**
-  - [`explainer.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/llm_module/explainer.py) — Handles prompt templates and schedules requests to Ollama or Groq API.
-  - [`pipeline.py`](file:///c:/Users/agbad/OneDrive/Desktop/vick/Project%20Assistant/llm_powered_financial_auditor/llm_module/pipeline.py) — Local validation pipeline script.
+```
+llm_powered_financial_auditor/
+├── app.py                          # Streamlit UI — orchestrates the full pipeline
+├── requirements.txt                # Python package dependencies
+├── .env                            # Local secrets (not committed)
+│
+├── extraction/
+│   ├── parse_html.py               # HTML parser (BeautifulSoup + SEC Item detection)
+│   ├── parse_pdf.py                # PDF parser (pdfplumber + SEC Item detection)
+│   └── extract_metrics.py          # RAG-based LLM metric extractor
+│
+├── anomaly_detection/
+│   └── rules.py                    # Heuristic anomaly detection rules engine
+│
+└── llm_module/
+    ├── client.py                   # Unified LLM client (Ollama + Groq, rate-limit retries)
+    ├── retriever.py                # Pure-Python BM25 retriever + text chunker
+    └── explainer.py                # Prompt templates for anomaly explanation & Q&A
+```
 
 ---
 
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
-Ensure you have the following installed:
 - **Python 3.8+**
-- **Ollama** (for local offline mode)
-
----
+- **Ollama** (only required for local offline mode)
 
 ### 2. Local Setup & Execution
 
-#### Step A: Clone the Repository & Install Dependencies
+#### Step A: Clone & Install
 ```bash
 git clone https://github.com/vickCoder7/llm_powered_financial_auditor.git
 cd llm_powered_financial_auditor
@@ -93,27 +111,37 @@ pip install -r requirements.txt
 
 ##### Option 1: Local Offline Inference (Default)
 1. Install and start [Ollama](https://ollama.ai/).
-2. Pull the Mistral model in a separate terminal:
+2. Pull the Mistral model:
    ```bash
    ollama pull mistral
    ```
-3. Run the Streamlit application:
+3. Run the app:
    ```bash
    streamlit run app.py
    ```
 
-##### Option 2: Cloud Inference (Groq)
-To run with cloud inference, create a Streamlit secrets file `.streamlit/secrets.toml` in your root directory (which is automatically excluded from git tracking via `.gitignore`):
-```toml
-# .streamlit/secrets.toml
-LLM_MODE = "cloud"
-GROQ_API_KEY = "your-groq-api-key-here"
-```
-Or define them inside a `.env` file:
+##### Option 2: Cloud Inference via Groq
+Create a `.env` file in the project root:
 ```ini
 LLM_MODE=cloud
 GROQ_API_KEY=your-groq-api-key-here
 ```
+Or use Streamlit secrets (`.streamlit/secrets.toml`) for cloud deployments:
+```toml
+LLM_MODE = "cloud"
+GROQ_API_KEY = "your-groq-api-key-here"
+```
+Then run:
+```bash
+streamlit run app.py
+```
+
+> **Note:** The default cloud model is `groq/compound-mini`, which has a **70,000 TPM** rate limit on the Groq free tier. You can override the model by setting `MODEL_NAME=<model-id>` in your `.env` file.
+
+### 3. Uploading a Report
+Upload any **HTML or PDF** financial report using the file uploader in the app. Supported formats:
+- SEC EDGAR HTML filings (10-K, 10-Q) — download directly from [EDGAR](https://www.sec.gov/cgi-bin/browse-edgar)
+- PDF annual reports or financial statements from any publicly listed company
 
 ---
 
